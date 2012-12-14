@@ -1,8 +1,8 @@
-/**
- * xCharts 0.1.4 Copyright (c) 2012, tenXer, Inc. All Rights Reserved.
- * Available via the MIT license.
- * see: http://github.com/tenxer/xCharts for details
- */
+/*!
+xCharts v0.1.2 Copyright (c) 2012, tenXer, Inc. All Rights Reserved.
+@license MIT license. http://github.com/tenXer/xcharts for details
+*/
+
 (function () {
 
 var xChart,
@@ -273,7 +273,7 @@ var _scales = {
     var inter = self._options.interpolation,
       x = function (d, i) {
         if (!self.xScale2 && !self.xScale.rangeBand) {
-          return self.xScale(new Date(d.x));
+          return self.xScale(d.x);
         }
         return self.xScale(d.x) + (self.xScale.rangeBand() / 2);
       },
