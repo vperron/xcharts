@@ -1,5 +1,5 @@
 /*!
-xCharts v0.1.2 Copyright (c) 2012, tenXer, Inc. All Rights Reserved.
+xCharts v0.1.3 Copyright (c) 2012, tenXer, Inc. All Rights Reserved.
 @license MIT license. http://github.com/tenXer/xcharts for details
 */
 
@@ -40,6 +40,35 @@ function _getDomain(data, axis) {
     .sort(d3.ascending);
 }
 
+function ordinal(data, axis, bounds, spacing) {
+  spacing = spacing || defaultSpacing;
+  var domain = _getDomain(data, axis);
+  return d3.scale.ordinal()
+    .domain(domain)
+    .rangeRoundBands(bounds, spacing);
+}
+
+function linear(extents, bounds, axis) {
+  return d3.scale.linear()
+    .domain(extents)
+    .nice()
+    .rangeRound(bounds);
+}
+
+function exponential(extents, bounds, axis) {
+  return d3.scale.pow()
+    .exponent(0.65)
+    .domain(extents)
+    .nice()
+    .rangeRound(bounds);
+}
+
+function time(extents, bounds) {
+  return d3.time.scale()
+    .domain(_.map(extents, function (d) { return new Date(d); }))
+    .range(bounds);
+}
+
 function _extendDomain(domain, axis) {
   var min = domain[0],
     max = domain[1],
@@ -61,59 +90,43 @@ function _extendDomain(domain, axis) {
   return [min, max];
 }
 
-function ordinal(data, axis, bounds, spacing) {
-  spacing = spacing || defaultSpacing;
-  var domain = _getDomain(data, axis);
-  return d3.scale.ordinal()
-    .domain(domain)
-    .rangeRoundBands(bounds, spacing);
-}
+function _getExtents(options, data, xType, yType) {
+  var extents,
+    nData = _.chain(data)
+      .pluck('data')
+      .flatten()
+      .value();
 
-function linear(extents, bounds, axis) {
-  if (axis === 'y') {
-    extents = _extendDomain(extents, axis);
-  }
-
-  return d3.scale.linear()
-    .domain(extents)
-    .nice()
-    .rangeRound(bounds);
-}
-
-function exponential(extents, bounds, axis) {
-  if (axis === 'y') {
-    extents = _extendDomain(extents, axis);
-  }
-
-  return d3.scale.pow()
-    .exponent(0.65)
-    .domain(extents)
-    .nice()
-    .rangeRound(bounds);
-}
-
-function time(extents, bounds) {
-  return d3.time.scale()
-    .domain(_.map(extents, function (d) { return new Date(d); }))
-    .range(bounds);
-}
-
-function _getExtents(data, key) {
-  var nData = _.chain(data)
-    .pluck('data')
-    .flatten()
-    .value();
-
-  return {
+  extents = {
     x: d3.extent(nData, function (d) { return d.x; }),
     y: d3.extent(nData, function (d) { return d.y; })
   };
+
+  _.each([xType, yType], function (type, i) {
+    var axis = (i) ? 'y' : 'x',
+      extended;
+    extents[axis] = d3.extent(nData, function (d) { return d[axis]; });
+    if (type === 'ordinal') {
+      return;
+    }
+
+    _.each([axis + 'Min', axis + 'Max'], function (minMax, i) {
+      if (type !== 'time') {
+        extended = _extendDomain(extents[axis]);
+      }
+      extents[axis][i] = (options.hasOwnProperty(minMax) &&
+          options[minMax] !== null) ? options[minMax]
+          : (type !== 'time') ? extended[i] : extents[axis][i];
+    });
+  });
+
+  return extents;
 }
 
 function xy(self, data, xType, yType) {
-  var extents = _getExtents(data),
+  var o = self._options,
+    extents = _getExtents(o, data, xType, yType),
     scales = {},
-    o = self._options,
     horiz = [o.axisPaddingLeft, self._width],
     vert = [self._height, o.axisPaddingTop],
     xScale,
@@ -515,6 +528,12 @@ var emptyData = [[]],
     tickHintY: 10,
     tickFormatY: function (y) { return y; },
 
+    // Min/Max Axis Values
+    xMin: null,
+    xMax: null,
+    yMin: null,
+    yMax: null,
+
     // Pre-format input data
     dataFormatX: function (x) { return x; },
     dataFormatY: function (y) { return y; },
@@ -712,6 +731,11 @@ _.defaults(xChart.prototype, {
       data.type = self._type;
       break;
     }
+
+    o.xMin = data.xMin || o.xMin;
+    o.xMax = data.xMax || o.xMax;
+    o.yMin = data.yMin || o.yMin;
+    o.yMax = data.yMax || o.yMax;
 
     if (self._vis) {
       self._destroy(self._vis, self._mainStorage);
